@@ -66,6 +66,7 @@ open class NavigationView: UIView {
         static let volumeUp = UIImage(named: "volume_up", in: .mapboxNavigation, compatibleWith: nil)!.withRenderingMode(.alwaysTemplate)
         static let volumeOff =  UIImage(named: "volume_off", in: .mapboxNavigation, compatibleWith: nil)!.withRenderingMode(.alwaysTemplate)
         static let feedback = UIImage(named: "feedback", in: .mapboxNavigation, compatibleWith: nil)!.withRenderingMode(.alwaysTemplate)
+        static let radar_cloud = UIImage(named: "radar_cloud", in: .mapboxNavigation, compatibleWith: nil)!.withRenderingMode(.alwaysTemplate)
     }
     
     lazy var mapView: NavigationMapView = {
@@ -96,7 +97,7 @@ open class NavigationView: UIView {
     lazy var overviewButton = FloatingButton.rounded(image: Images.overview)
     lazy var muteButton = FloatingButton.rounded(image: Images.volumeUp, selectedImage: Images.volumeOff)
     lazy var reportButton = FloatingButton.rounded(image: Images.feedback)
-    
+    lazy var radarButton = FloatingButton.rounded(image: Images.radar_cloud)
     lazy var lanesView: LanesView = .forAutoLayout(hidden: true)
     lazy var nextBannerView: NextBannerView = .forAutoLayout(hidden: true)
     lazy var statusView: StatusView = {
@@ -161,7 +162,7 @@ open class NavigationView: UIView {
     func setupStackViews() {
     
         setupInformationStackView()
-        floatingStackView.addArrangedSubviews([overviewButton, muteButton, reportButton])
+        floatingStackView.addArrangedSubviews([overviewButton, muteButton, reportButton, radarButton])
     }
     
     func setupInformationStackView() {
@@ -213,6 +214,7 @@ open class NavigationView: UIView {
         nextBannerView.instructionDelegate = delegate
         statusView.delegate = delegate
     }
+    
 }
 
 protocol NavigationViewDelegate: NavigationMapViewDelegate, StatusViewDelegate, InstructionsBannerViewDelegate, NavigationMapViewCourseTrackingDelegate, VisualInstructionDelegate {

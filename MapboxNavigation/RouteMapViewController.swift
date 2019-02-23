@@ -112,6 +112,7 @@ class RouteMapViewController: UIViewController {
     var mapView: NavigationMapView { return navigationView.mapView }
     var statusView: StatusView { return navigationView.statusView }
     var reportButton: FloatingButton { return navigationView.reportButton }
+    var radarButton: FloatingButton { return navigationView.radarButton }
     var lanesView: LanesView { return navigationView.lanesView }
     var nextBannerView: NextBannerView { return navigationView.nextBannerView }
     var instructionsBannerView: InstructionsBannerView { return navigationView.instructionsBannerView }
@@ -132,6 +133,7 @@ class RouteMapViewController: UIViewController {
         static let overview: Selector = #selector(RouteMapViewController.toggleOverview(_:))
         static let mute: Selector = #selector(RouteMapViewController.toggleMute(_:))
         static let feedback: Selector = #selector(RouteMapViewController.feedback(_:))
+        static let radar: Selector = #selector(RouteMapViewController.radar(_:))
         static let recenter: Selector = #selector(RouteMapViewController.recenter(_:))
     }
 
@@ -256,6 +258,7 @@ class RouteMapViewController: UIViewController {
         navigationView.overviewButton.addTarget(self, action: Actions.overview, for: .touchUpInside)
         navigationView.muteButton.addTarget(self, action: Actions.mute, for: .touchUpInside)
         navigationView.reportButton.addTarget(self, action: Actions.feedback, for: .touchUpInside)
+        navigationView.radarButton.addTarget(self, action: Actions.radar, for: .touchUpInside)
         navigationView.resumeButton.addTarget(self, action: Actions.recenter, for: .touchUpInside)
         resumeNotifications()
         notifyUserAboutLowVolume()
@@ -367,11 +370,21 @@ class RouteMapViewController: UIViewController {
     @objc func feedback(_ sender: Any) {
         showFeedback()
     }
+    
+    @objc func radar(_ sender: Any) {
+        showRadar()
+    }
 
     func showFeedback(source: FeedbackSource = .user) {
         guard let parent = parent else { return }
         let feedbackViewController = FeedbackViewController(eventsManager: navService.eventsManager)
         parent.present(feedbackViewController, animated: true, completion: nil)
+    }
+    
+    func showRadar() {
+        guard let parent = parent else { return }
+        let radarViewController = RadarViewController(eventsManager: navService.eventsManager)
+        parent.present(radarViewController, animated: true, completion: nil)
     }
 
     override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {

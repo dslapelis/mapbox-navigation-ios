@@ -237,6 +237,8 @@ open class NavigationViewController: UIViewController {
         mapViewController.view.pinInSuperview()
         mapViewController.reportButton.isHidden = !showsReportFeedback
         
+        
+        
         styleManager = StyleManager()
         styleManager.delegate = self
         styleManager.styles = options?.styles ?? [DayStyle(), NightStyle()]
