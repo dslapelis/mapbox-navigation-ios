@@ -1249,6 +1249,7 @@
 				8D3322262200E4CA001D44AA /* NavigationOptions.swift */,
 				8D3322242200E149001D44AA /* NavigationViewController+Obsolete.swift */,
 				8DEDEF3321E3FBE80049E114 /* NavigationViewControllerDelegate.swift */,
+				6926DF3122226E1800C514D7 /* RadarMapView.swift */,
 				6963B5662221E0AD0023FE43 /* RadarViewController.swift */,
 				351BEBE41E5BCC63006FE110 /* RouteMapViewController.swift */,
 				35C9973E1E732C1B00544D1C /* RouteVoiceController.swift */,
@@ -1257,7 +1258,6 @@
 				353AA55F1FCEF583009F0384 /* StyleManager.swift */,
 				C5A6B2DC1F4CE8E8004260EA /* StyleType.swift */,
 				35B1E2941F1FF8EC00A13D32 /* UserCourseView.swift */,
-				6926DF3122226E1800C514D7 /* RadarMapView.swift */,
 			);
 			path = MapboxNavigation;
 			sourceTree = "<group>";
@@ -2986,7 +2986,7 @@
 				);
 				INFOPLIST_FILE = Example/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.mapbox.Example;
+				PRODUCT_BUNDLE_IDENTIFIER = io.vakar.Example;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Example/Example-Swift-BridgingHeader.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -3008,7 +3008,7 @@
 				);
 				INFOPLIST_FILE = Example/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.mapbox.Example;
+				PRODUCT_BUNDLE_IDENTIFIER = io.vakar.Example;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Example/Example-Swift-BridgingHeader.h";
 				SWIFT_SWIFT3_OBJC_INFERENCE = Off;

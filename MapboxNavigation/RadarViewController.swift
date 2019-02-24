@@ -37,7 +37,7 @@ extension RadarViewController: UIViewControllerTransitioningDelegate {
  A view controller containing a grid of buttons the user can use to denote an issue their current navigation experience.
  */
 @objc(MBRadarViewController)
-public class RadarViewController: UIViewController, DismissDraggable, UIGestureRecognizerDelegate, MGLMapViewDelegate {
+public class RadarViewController: UIViewController, DismissDraggable, UIGestureRecognizerDelegate {
     
     static let sceneTitle = NSLocalizedString("RADAR_TITLE", value: "Radar Map", comment: "Title of view controller for viewing radar")
     static let cellReuseIdentifier = "collectionViewCellId"
@@ -48,34 +48,22 @@ public class RadarViewController: UIViewController, DismissDraggable, UIGestureR
     @objc public weak var delegate: RadarViewControllerDelegate?
     
     lazy var mapView: NavigationMapView = {
-        let url = URL(string: "mapbox://styles/mapbox/streets-v11")
+        let url = URL(string: "mapbox://styles/mapbox/dark-v9")
         let map = NavigationMapView(frame: view.bounds, styleURL: url)
+        map.delegate = self
         map.showsUserLocation = true
         map.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         map.translatesAutoresizingMaskIntoConstraints = false
-        map.delegate = self
         map.setUserTrackingMode(.follow, animated: true)
         return map
     }()
-    
-    func mapView(_ mapView: MGLMapView, didFinishLoading style: MGLStyle) {
-        // Add a new raster source and layer.
-        let source = MGLRasterTileSource(identifier: "stamen-watercolor", tileURLTemplates: ["https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png"], options: [ .tileSize: 256 ])
-        let rasterLayer = MGLRasterStyleLayer(identifier: "stamen-watercolor", source: source)
-        
-        style.addSource(source)
-        style.addLayer(rasterLayer)
-        
-        self.rasterLayer = rasterLayer
-        rasterLayer.rasterOpacity = NSExpression(forConstantValue: 0.5 as NSNumber)
-    }
     
     lazy var radarMapLabel: UILabel = {
         let label: UILabel = .forAutoLayout()
         label.textAlignment = .center
         label.text = RadarViewController.sceneTitle
-        label.textColor = .black
-        label.backgroundColor = .white
+        label.textColor = .white
+        label.backgroundColor = .black
         return label
     }()
     
@@ -119,6 +107,7 @@ public class RadarViewController: UIViewController, DismissDraggable, UIGestureR
         }
         
         enableAutoDismiss()
+        mapView.zoomLevel = 4
     }
     
     override public func willTransition(to newCollection: UITraitCollection, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -160,6 +149,7 @@ public class RadarViewController: UIViewController, DismissDraggable, UIGestureR
     
     private func setupViews() {
         [radarMapLabel, mapView, progressBar].forEach(view.addSubview(_:))
+        view.backgroundColor = .black
     }
     
     private func setupConstraints() {
@@ -196,10 +186,17 @@ public class RadarViewController: UIViewController, DismissDraggable, UIGestureR
     }
 }
 
-/*extension String {
-    func height(constrainedTo width: CGFloat, font: UIFont) -> CGFloat {
-        let constraintRect = CGSize(width: width, height: .greatestFiniteMagnitude)
-        let boundingBox = self.boundingRect(with: constraintRect, options: .usesLineFragmentOrigin, attributes: [.font: font], context: nil)
-        return ceil(boundingBox.height)
+extension RadarViewController: MGLMapViewDelegate {
+    @objc public func mapView(_ mapView: MGLMapView, didFinishLoading style: MGLStyle) {
+        // Add a new raster source and layer.
+        let source = MGLRasterTileSource(identifier: "stamen-watercolor", tileURLTemplates: ["https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png"], options: [ .tileSize: 256 ])
+        let rasterLayer = MGLRasterStyleLayer(identifier: "stamen-watercolor", source: source)
+        
+        style.addSource(source)
+        style.addLayer(rasterLayer)
+        
+        self.rasterLayer = rasterLayer
+        rasterLayer.rasterOpacity = NSExpression(forConstantValue: 0.5 as NSNumber)
     }
-}*/
+
+}
