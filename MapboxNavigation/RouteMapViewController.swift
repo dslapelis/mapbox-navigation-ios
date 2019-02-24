@@ -373,6 +373,7 @@ class RouteMapViewController: UIViewController {
     
     @objc func radar(_ sender: Any) {
         showRadar()
+        //showFeedback()
     }
 
     func showFeedback(source: FeedbackSource = .user) {
@@ -383,7 +384,9 @@ class RouteMapViewController: UIViewController {
     
     func showRadar() {
         guard let parent = parent else { return }
-        let radarViewController = RadarViewController(eventsManager: navService.eventsManager)
+        let radarViewController = RadarViewController()
+        radarViewController.modalPresentationStyle = .custom
+        radarViewController.view.frame = CGRect(x: 0, y: 0, width: view.bounds.width, height: 500)
         parent.present(radarViewController, animated: true, completion: nil)
     }
 

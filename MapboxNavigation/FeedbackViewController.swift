@@ -63,7 +63,7 @@ public class FeedbackViewController: UIViewController, DismissDraggable, UIGestu
     lazy var collectionView: UICollectionView = {
         let view: UICollectionView = UICollectionView(frame: .zero, collectionViewLayout: flowLayout)
         view.translatesAutoresizingMaskIntoConstraints = false
-        view.backgroundColor = .clear
+        view.backgroundColor = .white
         view.delegate = self
         view.dataSource = self
         view.register(FeedbackCollectionViewCell.self, forCellWithReuseIdentifier: FeedbackCollectionViewCell.defaultIdentifier)
