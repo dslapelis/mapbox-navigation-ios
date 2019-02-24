@@ -107,7 +107,8 @@ public class RadarViewController: UIViewController, DismissDraggable, UIGestureR
         }
         
         enableAutoDismiss()
-        mapView.zoomLevel = 4
+        mapView.zoomLevel = 8
+        mapView.setCenter((mapView.userLocation?.coordinate)!, animated: false)
     }
     
     override public func willTransition(to newCollection: UITraitCollection, with coordinator: UIViewControllerTransitionCoordinator) {
@@ -198,5 +199,4 @@ extension RadarViewController: MGLMapViewDelegate {
         self.rasterLayer = rasterLayer
         rasterLayer.rasterOpacity = NSExpression(forConstantValue: 0.5 as NSNumber)
     }
-
 }
