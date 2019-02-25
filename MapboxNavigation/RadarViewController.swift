@@ -39,7 +39,7 @@ extension RadarViewController: UIViewControllerTransitioningDelegate {
 @objc(MBRadarViewController)
 public class RadarViewController: UIViewController, DismissDraggable, UIGestureRecognizerDelegate {
     
-    static let sceneTitle = NSLocalizedString("RADAR_TITLE", value: "Radar Map", comment: "Title of view controller for viewing radar")
+    static let sceneTitle = NSLocalizedString("RADAR_TITLE", value: "Radar Map", comment: "Title of view controller for viewing the radar")
     static let cellReuseIdentifier = "collectionViewCellId"
     static let autoDismissInterval: TimeInterval = 30
     var rasterLayer: MGLRasterStyleLayer?
