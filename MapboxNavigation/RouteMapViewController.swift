@@ -297,6 +297,13 @@ class RouteMapViewController: UIViewController {
         showRouteIfNeeded()
         currentLegIndexMapped = router.routeProgress.legIndex
         currentStepIndexMapped = router.routeProgress.currentLegProgress.stepIndex
+        
+        let source = MGLRasterTileSource(identifier: "stamen-watercolor", tileURLTemplates: ["https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png"], options: [ .tileSize: 256 ])
+        let rasterLayer = MGLRasterStyleLayer(identifier: "stamen-watercolor", source: source)
+        rasterLayer.rasterOpacity = NSExpression(forConstantValue: 0.5 as NSNumber)
+        mapView.style?.addSource(source)
+        mapView.style?.addLayer(rasterLayer)
+        mapView.style?.layer(withIdentifier: "stamen-watercolor")?.isVisible = false
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -337,7 +344,7 @@ class RouteMapViewController: UIViewController {
         
         // always remove preview index when we recenter
         currentPreviewInstructionBannerStepIndex = nil
-        
+        mapView.style?.layer(withIdentifier: "stamen-watercolor")?.isVisible = false
         removePreviewInstructions()
     }
 
@@ -357,6 +364,7 @@ class RouteMapViewController: UIViewController {
         if let coordinates = router.route.coordinates, let userLocation = router.location?.coordinate {
             mapView.setOverheadCameraView(from: userLocation, along: coordinates, for: overheadInsets)
         }
+        mapView.style?.layer(withIdentifier: "stamen-watercolor")?.isVisible = true
         isInOverviewMode = true
     }
 
