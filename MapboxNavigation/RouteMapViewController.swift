@@ -301,6 +301,7 @@ class RouteMapViewController: UIViewController {
         let source = MGLRasterTileSource(identifier: "stamen-watercolor", tileURLTemplates: ["https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png"], options: [ .tileSize: 256 ])
         let rasterLayer = MGLRasterStyleLayer(identifier: "stamen-watercolor", source: source)
         rasterLayer.rasterOpacity = NSExpression(forConstantValue: 0.5 as NSNumber)
+        
         mapView.style?.addSource(source)
         mapView.style?.addLayer(rasterLayer)
         mapView.style?.layer(withIdentifier: "stamen-watercolor")?.isVisible = false
