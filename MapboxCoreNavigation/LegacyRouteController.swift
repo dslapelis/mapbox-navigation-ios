@@ -14,7 +14,7 @@ protocol RouteControllerDataSource: class {
 
 @objc(MBLegacyRouteController)
 @available(*, deprecated, renamed: "RouteController")
-open class LegacyRouteController: NSObject, Router, CLLocationManagerDelegate {
+open class LegacyRouteController: NSObject, Router, InternalRouter, CLLocationManagerDelegate {
     
     @objc public weak var delegate: RouterDelegate?
 
@@ -32,13 +32,11 @@ open class LegacyRouteController: NSObject, Router, CLLocationManagerDelegate {
     */
     @objc public var waypointArrivalThreshold: TimeInterval = 5.0
     
-    
-    /**
-     If true, the `RouteController` attempts to calculate a more optimal route for the user on an interval defined by `RouteControllerProactiveReroutingInterval`.
-     */
-    @objc public var reroutesProactively = false
+    @objc public var reroutesProactively = true
 
     var didFindFasterRoute = false
+    
+    var lastProactiveRerouteDate: Date?
 
     @objc public var routeProgress: RouteProgress {
         get {
@@ -49,7 +47,7 @@ open class LegacyRouteController: NSObject, Router, CLLocationManagerDelegate {
                 delegate?.router?(self, willRerouteFrom: location)
             }
             _routeProgress = newValue
-            announce(reroute: routeProgress.route, at: dataSource.location, proactive: didFindFasterRoute)
+            announce(reroute: routeProgress.route, at: location, proactive: didFindFasterRoute)
         }
     }
     
@@ -131,7 +129,7 @@ open class LegacyRouteController: NSObject, Router, CLLocationManagerDelegate {
      The most recently received user location.
      - note: This is a raw location received from `locationManager`. To obtain an idealized location, use the `location` property.
      */
-    var rawLocation: CLLocation? {
+    public var rawLocation: CLLocation? {
         didSet {
             if isFirstLocation == true {
                 isFirstLocation = false
@@ -160,30 +158,6 @@ open class LegacyRouteController: NSObject, Router, CLLocationManagerDelegate {
             }
         }
         return RouteControllerMaximumDistanceBeforeRecalculating
-    }
-    
-    func getDirections(from location: CLLocation, along progress: RouteProgress, completion: @escaping (_ route: Route?, _ error: Error?)->Void) {
-        routeTask?.cancel()
-        let options = progress.reroutingOptions(with: location)
-        
-        self.lastRerouteLocation = location
-        
-        let complete = { [weak self] (route: Route?, error: NSError?) in
-            self?.isRerouting = false
-            completion(route, error)
-        }
-        
-        routeTask = directions.calculate(options) {(waypoints, potentialRoutes, potentialError) in
-            
-            guard let routes = potentialRoutes else {
-                return complete(nil, potentialError)
-            }
-            
-            let mostSimilar = routes.mostSimilar(to: progress.route)
-            
-            return complete(mostSimilar ?? routes.first, potentialError)
-            
-        }
     }
     
     /**
@@ -305,14 +279,9 @@ open class LegacyRouteController: NSObject, Router, CLLocationManagerDelegate {
         }
 
         updateSpokenInstructionProgress()
-
-        // Check for faster route given users current location
-        guard reroutesProactively else { return }
-        // Only check for faster alternatives if the user has plenty of time left on the route.
-        guard routeProgress.durationRemaining > 600 else { return }
-        // If the user is approaching a maneuver, don't check for a faster alternatives
-        guard routeProgress.currentLegProgress.currentStepProgress.durationRemaining > RouteControllerMediumAlertInterval else { return }
-        checkForFasterRoute(from: location)
+        
+        // Check for faster route proactively (if reroutesProactively is enabled)
+        checkForFasterRoute(from: location, routeProgress: routeProgress)
     }
     
     private func update(progress: RouteProgress, with location: CLLocation, rawLocation: CLLocation) {
@@ -337,16 +306,6 @@ open class LegacyRouteController: NSObject, Router, CLLocationManagerDelegate {
                 RouteControllerNotificationUserInfoKey.rawLocationKey: rawLocation //raw
                 ])
         }
-    }
-    
-    private func announce(reroute newRoute: Route, at location: CLLocation?, proactive: Bool) {
-            var userInfo = [RouteControllerNotificationUserInfoKey: Any]()
-            if let location = location {
-                userInfo[.locationKey] = location
-            }
-            userInfo[.isProactiveKey] = didFindFasterRoute
-            NotificationCenter.default.post(name: .routeControllerDidReroute, object: self, userInfo: userInfo)
-        delegate?.router?(self, didRerouteAlong: routeProgress.route, at: dataSource.location, proactive: didFindFasterRoute)
     }
         
     func updateIntersectionIndex(for currentStepProgress: RouteStepProgress) {
@@ -376,51 +335,6 @@ open class LegacyRouteController: NSObject, Router, CLLocationManagerDelegate {
                 
             } else { //we are approaching the destination
                 delegate?.router?(self, willArriveAt: currentDestination, after: legProgress.durationRemaining, distance: legProgress.distanceRemaining)
-            }
-        }
-    }
-    
-    func checkForFasterRoute(from location: CLLocation) {
-        guard let currentUpcomingManeuver = routeProgress.currentLegProgress.upcomingStep else {
-            return
-        }
-
-        guard let lastLocationDate = lastLocationDate else {
-            self.lastLocationDate = location.timestamp
-            return
-        }
-
-        // Only check every so often for a faster route.
-        guard location.timestamp.timeIntervalSince(lastLocationDate) >= RouteControllerProactiveReroutingInterval else {
-            return
-        }
-        let durationRemaining = routeProgress.durationRemaining
-
-        getDirections(from: location, along: routeProgress) { [weak self] (route, error) in
-            guard let strongSelf = self else {
-                return
-            }
-
-            guard let route = route else {
-                return
-            }
-
-            strongSelf.lastLocationDate = nil
-
-            guard let firstLeg = route.legs.first, let firstStep = firstLeg.steps.first else {
-                return
-            }
-
-            let routeIsFaster = firstStep.expectedTravelTime >= RouteControllerMediumAlertInterval &&
-                currentUpcomingManeuver == firstLeg.steps[1] && route.expectedTravelTime <= 0.9 * durationRemaining
-
-            if routeIsFaster {
-                strongSelf.didFindFasterRoute = true
-                // If the upcoming maneuver in the new route is the same as the current upcoming maneuver, don't announce it
-                strongSelf._routeProgress = RouteProgress(route: route, legIndex: 0, spokenInstructionIndex: strongSelf._routeProgress.currentLegProgress.currentStepProgress.spokenInstructionIndex)
-                strongSelf.announce(reroute: route, at: location, proactive: true)
-                strongSelf.movementsAwayFromRoute = 0
-                strongSelf.didFindFasterRoute = false
             }
         }
     }
