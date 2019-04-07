@@ -15,15 +15,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-<<<<<<< HEAD
-	<string>0.29.3</string>
-	<key>CFBundleVersion</key>
-	<string>9</string>
-=======
 	<string>0.31.0</string>
 	<key>CFBundleVersion</key>
 	<string>11</string>
->>>>>>> a016c58a0e7bc4d7d3d53aeaca2a09f474a92840
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>MGLMapboxAccessToken</key>
