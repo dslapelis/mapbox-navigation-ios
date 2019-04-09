@@ -1913,7 +1913,7 @@
 					};
 					358D14621E5E3B7700ADE590 = {
 						CreatedOnToolsVersion = 8.2.1;
-						DevelopmentTeam = GJZR2MEM28;
+						DevelopmentTeam = 9L7GY7KY69;
 						LastSwiftMigration = 1010;
 						ProvisioningStyle = Automatic;
 					};
