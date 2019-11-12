@@ -28,7 +28,7 @@ BASE_URL="https://docs.mapbox.com/ios/api"
 
 # Link to directions documentation
 DIRECTIONS_VERSION=$(grep 'MapboxDirections.swift' Cartfile.resolved | grep -oE '"v.+?"' | grep -oE '[^"v]+')
-DIRECTIONS_SYMBOLS="ComponentRepresentable|Directions|DirectionsOptions|DirectionsResult|Intersection|Lane|Match|MatchOptions|RoadClasses|Route|RouteLeg|RouteOptions|RouteStep|SpokenInstruction|Tracepoint|VisualInstruction|VisualInstructionBanner|VisualInstructionComponent|Waypoint"
+DIRECTIONS_SYMBOLS="ComponentRepresentable|CoordinateBounds|Directions|DirectionsOptions|DirectionsResult|Intersection|Lane|LaneIndicationComponent|Match|MatchOptions|RoadClasses|Route|RouteLeg|RouteOptions|RouteStep|SpokenInstruction|Tracepoint|VisualInstruction|VisualInstructionBanner|VisualInstructionComponent|Waypoint"
 
 rm -rf ${OUTPUT}
 mkdir -p ${OUTPUT}
@@ -60,10 +60,10 @@ jazzy \
     --documentation="docs/guides/*.md" \
     --root-url "${BASE_URL}/navigation/${RELEASE_VERSION}/" \
     --theme ${THEME} \
-    --output ${OUTPUT}
+    --output ${OUTPUT} \
+    --module_version ${RELEASE_VERSION}
 
 REPLACE_REGEXP='s/MapboxNavigation\s+(Docs|Reference)/Mapbox Navigation SDK for iOS $1/, '
-REPLACE_REGEXP+='s/BRANDLESS_DOCSET_TITLE/Navigation SDK for iOS $1/, '
 REPLACE_REGEXP+="s/<span class=\"kt\">(${DIRECTIONS_SYMBOLS})<\/span>/<span class=\"kt\"><a href=\"${BASE_URL//\//\\/}\/directions\/${DIRECTIONS_VERSION}\/Classes\/\$1.html\">\$1<\/a><\/span>/, "
 
 find ${OUTPUT} -name *.html -exec \

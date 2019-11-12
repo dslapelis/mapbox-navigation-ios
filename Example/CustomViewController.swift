@@ -151,8 +151,7 @@ class CustomViewController: UIViewController, MGLMapViewDelegate {
             controller.view.trailingAnchor.constraint(equalTo: view.trailingAnchor).isActive = true
             
             controller.didMove(toParent: self)
-            controller.dropDownAnimation()
-            
+            view.layoutIfNeeded()
             stepsViewController = controller
             return
         }
@@ -163,8 +162,8 @@ class CustomViewController: UIViewController, MGLMapViewDelegate {
         
         // find the leg that contains the step, legIndex, and stepIndex
         guard let leg       = route.legs.first(where: { $0.steps.contains(step) }),
-              let legIndex  = route.legs.index(of: leg),
-              let stepIndex = leg.steps.index(of: step) else {
+              let legIndex  = route.legs.firstIndex(of: leg),
+              let stepIndex = leg.steps.firstIndex(of: step) else {
             return
         }
         

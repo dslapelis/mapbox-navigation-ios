@@ -100,12 +100,14 @@ class ViewController: UIViewController {
         let night: ActionHandler = {_ in self.startNavigation(styles: [NightStyle()]) }
         let custom: ActionHandler = {_ in self.startCustomNavigation() }
         let styled: ActionHandler = {_ in self.startStyledNavigation() }
+        let guidanceCards: ActionHandler = {_ in self.startGuidanceCardsNavigation() }
         
         let actionPayloads: [(String, UIAlertAction.Style, ActionHandler?)] = [
             ("Default UI", .default, basic),
             ("DayStyle UI", .default, day),
             ("NightStyle UI", .default, night),
             ("Custom UI", .default, custom),
+            ("Guidance Card UI", .default, guidanceCards),
             ("Styled UI", .default, styled),
             ("Cancel", .cancel, nil)
         ]
@@ -123,9 +125,11 @@ class ViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-
-        self.mapView = NavigationMapView(frame: view.bounds)
-
+        
+        if mapView == nil {
+            mapView = NavigationMapView(frame: view.bounds)
+        }
+        
         // Reset the navigation styling to the defaults if we are returning from a presentation.
         if (presentedViewController != nil) {
             DayStyle().apply()
@@ -135,11 +139,9 @@ class ViewController: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
 
-        if #available(iOS 10.0, *) {
-            UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .alert, .sound]) { _,_ in
-                DispatchQueue.main.async {
-                    CLLocationManager().requestWhenInUseAuthorization()
-                }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.badge, .alert, .sound]) { _, _ in
+            DispatchQueue.main.async {
+                CLLocationManager().requestWhenInUseAuthorization()
             }
         }
     }
@@ -251,7 +253,7 @@ class ViewController: UIViewController {
         self.routes = [navigationService.route]
         
         let navigationViewController = activeNavigationViewController ?? self.navigationViewController(navigationService: navigationService)
-        navigationViewController.isUsedInConjunctionWithCarPlayWindow = true
+        navigationViewController.didConnectToCarPlay()
         
         guard activeNavigationViewController == nil else { return }
         
@@ -286,6 +288,21 @@ class ViewController: UIViewController {
 
         presentAndRemoveMapview(navigationViewController, completion: beginCarPlayNavigation)
     }
+    
+    // MARK: Guidance Cards
+    func startGuidanceCardsNavigation() {
+        guard let route = routes?.first else { return }
+        
+        let instructionsCardCollection = InstructionsCardViewController()
+        instructionsCardCollection.cardCollectionDelegate = self
+        
+        let options = NavigationOptions(navigationService: navigationService(route: route), topBanner: instructionsCardCollection)
+        let navigationViewController = NavigationViewController(for: route, options: options)
+        navigationViewController.delegate = self
+        
+        presentAndRemoveMapview(navigationViewController, completion: beginCarPlayNavigation)
+    }
+    
 
     func navigationService(route: Route) -> NavigationService {
         let simulate = simulationButton.isSelected
@@ -294,6 +311,7 @@ class ViewController: UIViewController {
     }
 
     func presentAndRemoveMapview(_ navigationViewController: NavigationViewController, completion: CompletionHandler?) {
+        navigationViewController.modalPresentationStyle = .fullScreen
         activeNavigationViewController = navigationViewController
         
         present(navigationViewController, animated: true) { [weak self] in
@@ -369,7 +387,7 @@ extension ViewController: NavigationMapViewDelegate {
 
     func navigationMapView(_ mapView: NavigationMapView, didSelect route: Route) {
         guard let routes = routes else { return }
-        guard let index = routes.index(where: { $0 == route }) else { return }
+        guard let index = routes.firstIndex(where: { $0 == route }) else { return }
         self.routes!.remove(at: index)
         self.routes!.insert(route, at: 0)
     }
@@ -487,6 +505,9 @@ extension ViewController: NavigationViewControllerDelegate {
     func navigationViewControllerDidDismiss(_ navigationViewController: NavigationViewController, byCanceling canceled: Bool) {
         endCarPlayNavigation(canceled: canceled)
         dismissActiveNavigationViewController()
+        if mapView == nil {
+            mapView = NavigationMapView(frame: view.bounds)
+        }
     }
 }
 

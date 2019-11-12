@@ -105,6 +105,7 @@ open class SimulatedLocationManager: NavigationLocationManager {
             self?.tick()
         }
         
+        NotificationCenter.default.addObserver(self, selector: #selector(didReroute(_:)), name: .routeControllerDidReroute, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(progressDidChange(_:)), name: .routeControllerProgressDidChange, object: nil)
     }
     
@@ -123,8 +124,18 @@ open class SimulatedLocationManager: NavigationLocationManager {
         routeProgress = notification.userInfo![RouteControllerNotificationUserInfoKey.routeProgressKey] as? RouteProgress
     }
     
+    @objc private func didReroute(_ notification: Notification) {
+        guard let router = notification.object as? Router else {
+            return
+        }
+
+        self.currentDistance = calculateCurrentDistance(router.routeProgress.distanceTraveled)
+        routeProgress = router.routeProgress
+        route = router.routeProgress.route
+    }
     
     deinit {
+        NotificationCenter.default.removeObserver(self, name: .routeControllerDidReroute, object: nil)
         NotificationCenter.default.removeObserver(self, name: .routeControllerProgressDidChange, object: nil)
     }
     
@@ -224,7 +235,7 @@ extension Array where Element : Hashable {
 
 extension Array where Element : Equatable {
     fileprivate func after(element: Element) -> Element? {
-        if let index = self.index(of: element), index + 1 <= self.count {
+        if let index = self.firstIndex(of: element), index + 1 <= self.count {
             return index + 1 == self.count ? self[0] : self[index + 1]
         }
         return nil

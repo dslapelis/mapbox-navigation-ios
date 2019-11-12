@@ -18,7 +18,7 @@ public class NavigationEventsManagerSpy: NavigationEventsManager {
     var debuggableEvents = [NavigationEventDetails]()
 
     required public init() {
-        mobileEventsManagerSpy = MMEEventsManagerSpy()
+        mobileEventsManagerSpy = MMEEventsManagerSpy.testableInstance()
         super.init(dataSource: nil, accessToken: "fake token", mobileEventsManager: mobileEventsManagerSpy)
     }
 

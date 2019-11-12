@@ -7,9 +7,6 @@
 /* Message on arrival action sheet */
 "CARPLAY_ARRIVED_MESSAGE" = "Que voulez-vous faire ?";
 
-/* Title on continue button in CarPlay */
-"CARPLAY_CONTINUE" = "Continuer";
-
 /* Name of the waypoint associated with the current location */
 "CARPLAY_CURRENT_LOCATION" = "Position actuelle";
 
@@ -34,9 +31,6 @@
 /* Title for mute button */
 "CARPLAY_MUTE" = "Muet";
 
-/* CPNavigationAlert OK button title */
-"CARPLAY_OK" = "Ok";
-
 /* Title for overview button in CPTripPreviewTextConfiguration */
 "CARPLAY_OVERVIEW" = "Aperçu";
 
@@ -55,14 +49,8 @@
 /* Title for unmute button */
 "CARPLAY_UNMUTE" = "Réactiver le son";
 
-/* Format string for indicating the device volume is low; 1 = device model */
-"DEVICE_VOLUME_LOW" = "%@ Volume moins";
-
 /* Dismiss button title on the steps view */
 "DISMISS_STEPS_TITLE" = "Fermer";
-
-/* End Navigation Button Text */
-"END_NAVIGATION" = "Terminer la navigation";
 
 /* Title used for arrival */
 "END_OF_ROUTE_ARRIVED" = "Vous êtes arrivé";
@@ -84,12 +72,6 @@
 
 /* Feedback type for Other Map Issue Issue */
 "FEEDBACK_GENERAL_ISSUE" = "Autre \nproblème de carte";
-
-/* Feedback type for Missing Exit */
-"FEEDBACK_MISSING_EXIT" = "Sortie \nmanquante";
-
-/* Feedback type for Missing Road */
-"FEEDBACK_MISSING_ROAD" = "Route \nmanquante";
 
 /* Feedback type for a maneuver that is Not Allowed */
 "FEEDBACK_NOT_ALLOWED" = "Non \nautorisé";
@@ -131,7 +113,7 @@
 "RESUME" = "Reprendre";
 
 /* The text of a banner that appears during turn-by-turn navigation when route simulation is enabled. */
-"USER_IN_SIMULATION_MODE" = "Simulation de navigation à %d×";
+"USER_IN_SIMULATION_MODE" = "Simulez la navigation pour %@";
 
 /* Format for displaying destination and intermediate waypoints; 1 = source ; 2 = destinations */
 "WAYPOINT_DESTINATION_VIA_WAYPOINTS_FORMAT" = "%1$@, par %2$@";

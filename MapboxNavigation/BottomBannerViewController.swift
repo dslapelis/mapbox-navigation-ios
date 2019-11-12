@@ -24,7 +24,7 @@ open class BottomBannerViewController: UIViewController, NavigationComponent {
     /*
      A padded spacer view that covers the bottom safe area of the device, if any.
      */
-    lazy open var bottomPaddingView: BottomBannerView = .forAutoLayout()
+    lazy open var bottomPaddingView: BottomPaddingView = .forAutoLayout()
     
     /**
      The main bottom banner view that all UI components are added to.
@@ -73,7 +73,7 @@ open class BottomBannerViewController: UIViewController, NavigationComponent {
     
     let dateFormatter = DateFormatter()
     let dateComponentsFormatter = DateComponentsFormatter()
-    let distanceFormatter = DistanceFormatter(approximate: true)
+    let distanceFormatter = DistanceFormatter()
     
     var verticalCompactConstraints = [NSLayoutConstraint]()
     var verticalRegularConstraints = [NSLayoutConstraint]()

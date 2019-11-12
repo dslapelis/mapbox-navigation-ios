@@ -1,6 +1,5 @@
 #if canImport(CarPlay)
 import CarPlay
-import Turf
 import MapboxCoreNavigation
 import MapboxDirections
 
@@ -55,8 +54,23 @@ public class CarPlayManager: NSObject {
         }
     }
 
+    var trackingStateObservation: NSKeyValueObservation?
+    
+    deinit {
+        trackingStateObservation = nil
+    }
+    
     public fileprivate(set) var mainMapTemplate: CPMapTemplate?
-    public fileprivate(set) weak var currentNavigator: CarPlayNavigationViewController?
+    public fileprivate(set) weak var currentNavigator: CarPlayNavigationViewController? {
+        didSet {
+            if let controller = currentNavigator {
+                trackingStateObservation = controller.observe(\.tracksUserCourse) { [weak self] (controller, change) in
+                    let imageName = controller.tracksUserCourse ? "carplay_overview" : "carplay_locate"
+                    self?.userTrackingButton.image = UIImage(named: imageName, in: .mapboxNavigation, compatibleWith: nil)
+                }
+            }
+        }
+    }
 
     internal var mapTemplateProvider: MapTemplateProvider
 
@@ -142,40 +156,23 @@ public class CarPlayManager: NSObject {
     /**
      The bar button that shows the selected route overview on the map.
      */
-    @objc public lazy var overviewButton: CPMapButton = {
-        let overviewButton = CPMapButton { button in
+    @objc public lazy var userTrackingButton: CPMapButton = {
+        let userTrackingButton = CPMapButton { button in
             guard let navigationViewController = self.currentNavigator else {
                 return
             }
             navigationViewController.tracksUserCourse = !navigationViewController.tracksUserCourse
-            
-            let imageName = navigationViewController.tracksUserCourse ? "carplay_overview" : "carplay_locate"
-            button.image = UIImage(named: imageName, in: .mapboxNavigation, compatibleWith: nil)
         }
-        overviewButton.image = UIImage(named: "carplay_overview", in: .mapboxNavigation, compatibleWith: nil)
-        return overviewButton
+        
+        userTrackingButton.image = UIImage(named: "carplay_overview", in: .mapboxNavigation, compatibleWith: nil)
+        
+        return userTrackingButton
     }()
     
-    lazy var fullDateComponentsFormatter: DateComponentsFormatter = {
-        let formatter = DateComponentsFormatter()
-        formatter.unitsStyle = .full
-        formatter.allowedUnits = [.day, .hour, .minute]
-        return formatter
-    }()
-    
-    lazy var shortDateComponentsFormatter: DateComponentsFormatter = {
-        let formatter = DateComponentsFormatter()
-        formatter.unitsStyle = .short
-        formatter.allowedUnits = [.day, .hour, .minute]
-        return formatter
-    }()
-    
-    lazy var briefDateComponentsFormatter: DateComponentsFormatter = {
-        let formatter = DateComponentsFormatter()
-        formatter.unitsStyle = .brief
-        formatter.allowedUnits = [.day, .hour, .minute]
-        return formatter
-    }()
+    @available(*, deprecated, renamed: "trackingStateButton")
+    @objc public var overviewButton: CPMapButton {
+        get { return userTrackingButton }
+    }
     
     /**
      The main map view displayed inside CarPlay.
@@ -235,25 +232,13 @@ public class CarPlayManager: NSObject {
      */
     public func beginNavigationWithCarPlay(using currentLocation: CLLocationCoordinate2D, navigationService: NavigationService) {
         let route = navigationService.route
-        guard let destination = route.routeOptions.waypoints.last else {
-            return
-        }
         
-        let summaryVariants = [
-            fullDateComponentsFormatter.string(from: route.expectedTravelTime)!,
-            shortDateComponentsFormatter.string(from: route.expectedTravelTime)!,
-            briefDateComponentsFormatter.string(from: route.expectedTravelTime)!]
-        let routeChoice = CPRouteChoice(summaryVariants: summaryVariants, additionalInformationVariants: [route.description], selectionSummaryVariants: [route.description])
-        routeChoice.userInfo = route
-        
-        let originPlacemark = MKPlacemark(coordinate: currentLocation)
-        let destinationPlacemark = MKPlacemark(coordinate: destination.coordinate)
-        
-        let trip = CPTrip(origin: MKMapItem(placemark: originPlacemark), destination: MKMapItem(placemark: destinationPlacemark), routeChoices: [routeChoice])
+        var trip = CPTrip(routes: [route], routeOptions: route.routeOptions, waypoints: route.routeOptions.waypoints)
+        trip = delegate?.carPlayManager?(self, willPreview: trip) ?? trip
         
         self.navigationService = navigationService
         
-        if let mapTemplate = mainMapTemplate {
+        if let mapTemplate = mainMapTemplate, let routeChoice = trip.routeChoices.first {
             self.mapTemplate(mapTemplate, startedTrip: trip, using: routeChoice)
         }
     }
@@ -371,7 +356,7 @@ extension CarPlayManager: CPInterfaceControllerDelegate {
             let mapView = mapViewController.mapView
             mapView.removeRoutes()
             mapView.removeWaypoints()
-            mapView.setUserTrackingMode(.followWithCourse, animated: true)
+            mapView.setUserTrackingMode(.followWithCourse, animated: true, completionHandler: nil)
         }
     }
     public func templateWillDisappear(_ template: CPTemplate, animated: Bool) {
@@ -451,23 +436,7 @@ extension CarPlayManager {
             return
         }
         
-        let routeChoices = routes.map { (route) -> CPRouteChoice in
-            let summaryVariants = [
-               fullDateComponentsFormatter.string(from: route.expectedTravelTime)!,
-               shortDateComponentsFormatter.string(from: route.expectedTravelTime)!,
-               briefDateComponentsFormatter.string(from: route.expectedTravelTime)!
-            ]
-            let routeChoice = CPRouteChoice(summaryVariants: summaryVariants, additionalInformationVariants: [route.description], selectionSummaryVariants: [route.description])
-            routeChoice.userInfo = route
-            return routeChoice
-        }
-        
-        let originPlacemark = MKPlacemark(coordinate: waypoints.first!.coordinate)
-        let destinationPlacemark = MKPlacemark(coordinate: waypoints.last!.coordinate, addressDictionary: ["street": waypoints.last!.name ?? ""])
-        
-        var trip = CPTrip(origin: MKMapItem(placemark: originPlacemark), destination: MKMapItem(placemark: destinationPlacemark), routeChoices: routeChoices)
-        trip.userInfo = routeOptions
-
+        var trip = CPTrip(routes: routes, routeOptions: routeOptions, waypoints: waypoints)
         trip = delegate?.carPlayManager?(self, willPreview: trip) ?? trip
 
         var previewText = defaultTripPreviewTextConfiguration()
@@ -554,7 +523,7 @@ extension CarPlayManager: CPMapTemplateDelegate {
             let mapButtons = delegate?.carPlayManager?(self, mapButtonsCompatibleWith: carPlayMapViewController.traitCollection, in: mapTemplate, for: .navigating) {
             mapTemplate.mapButtons = mapButtons
         } else {
-            mapTemplate.mapButtons = [overviewButton, showFeedbackButton]
+            mapTemplate.mapButtons = [userTrackingButton, showFeedbackButton]
         }
 
         if let rootViewController = carPlayMapViewController,
@@ -581,14 +550,17 @@ extension CarPlayManager: CPMapTemplateDelegate {
         carPlayMapViewController.isOverviewingRoutes = true
         let mapView = carPlayMapViewController.mapView
         let route = routeChoice.userInfo as! Route
+        
+        let estimates = CPTravelEstimates(distanceRemaining: Measurement(distance: route.distance).localized(),
+                                          timeRemaining: route.expectedTravelTime)
+        mapTemplate.updateEstimates(estimates, for: trip)
 
         //FIXME: Unable to tilt map during route selection -- https://github.com/mapbox/mapbox-gl-native/issues/2259
         let topDownCamera = mapView.camera
         topDownCamera.pitch = 0
         mapView.setCamera(topDownCamera, animated: false)
 
-        let padding = NavigationMapView.defaultPadding + mapView.safeArea
-        mapView.showcase([route], padding: padding)
+        mapView.showcase([route])
         
         delegate?.carPlayManager?(self, selectedPreviewFor: trip, using: routeChoice)
     }
@@ -648,16 +620,6 @@ extension CarPlayManager: CPMapTemplateDelegate {
     }
 
     public func mapTemplate(_ mapTemplate: CPMapTemplate, didUpdatePanGestureWithTranslation translation: CGPoint, velocity: CGPoint) {
-        let mapView: NavigationMapView
-        if let navigationViewController = currentNavigator, mapTemplate == navigationViewController.mapTemplate {
-            mapView = navigationViewController.mapView!
-        } else if let carPlayMapViewController = carPlayMapViewController {
-            mapView = carPlayMapViewController.mapView
-        } else {
-            return
-        }
-        
-        mapView.setContentInset(mapView.safeArea, animated: false) //make sure this is always up to date in-case safe area changes during gesture
         updatePan(by: translation, mapTemplate: mapTemplate, animated: false)
     }
     
@@ -676,7 +638,7 @@ extension CarPlayManager: CPMapTemplateDelegate {
     }
 
     func coordinate(of offset: CGPoint, in mapView: NavigationMapView) -> CLLocationCoordinate2D {
-        let contentFrame = mapView.bounds.inset(by: mapView.safeArea)
+        let contentFrame = mapView.bounds.inset(by: mapView.contentInset)
         let centerPoint = CGPoint(x: contentFrame.midX, y: contentFrame.midY)
         let endCameraPoint = CGPoint(x: centerPoint.x - offset.x, y: centerPoint.y - offset.y)
 
@@ -690,7 +652,7 @@ extension CarPlayManager: CPMapTemplateDelegate {
 
         // Determine the screen distance to pan by based on the distance from the visual center to the closest side.
         let mapView = carPlayMapViewController.mapView
-        let contentFrame = mapView.bounds.inset(by: mapView.safeArea)
+        let contentFrame = mapView.bounds.inset(by: mapView.contentInset)
         let increment = min(mapView.bounds.width, mapView.bounds.height) / 2.0
         
         // Calculate the distance in physical units from the visual center to where it would be after panning downwards.

@@ -148,19 +148,8 @@ open class NavigationMapView: MGLMapView, UIGestureRecognizerDelegate {
         if let anchorPoint = navigationMapViewDelegate?.navigationMapViewUserAnchorPoint?(self), anchorPoint != .zero {
             return anchorPoint
         }
-        
-        // Inset by the safe area to avoid notches.
-        // Inset by the content inset to avoid application-defined content.
-        var contentFrame = bounds.inset(by: safeArea).inset(by: contentInset)
-        
-        // Avoid letting the puck go partially off-screen, and add a comfortable padding beyond that.
-        let courseViewBounds = userCourseView?.bounds ?? .zero
-        contentFrame = contentFrame.insetBy(dx: min(NavigationMapView.courseViewMinimumInsets.left + courseViewBounds.width / 2.0, contentFrame.width / 2.0),
-                                            dy: min(NavigationMapView.courseViewMinimumInsets.top + courseViewBounds.height / 2.0, contentFrame.height / 2.0))
-        
-        // Get the bottom-center of the remaining frame.
-        assert(!contentFrame.isInfinite)
-        return CGPoint(x: contentFrame.midX, y: contentFrame.maxY)
+        let contentFrame = bounds.inset(by: contentInset)
+        return CGPoint(x: contentFrame.midX, y: contentFrame.midY)
     }
     
     /**
@@ -194,8 +183,6 @@ open class NavigationMapView: MGLMapView, UIGestureRecognizerDelegate {
             if let userCourseView = userCourseView {
                 if let location = userLocationForCourseTracking {
                     updateCourseTracking(location: location, animated: false)
-                } else {
-                    userCourseView.center = userAnchorPoint
                 }
                 addSubview(userCourseView)
             }
@@ -337,11 +324,7 @@ open class NavigationMapView: MGLMapView, UIGestureRecognizerDelegate {
         if tracksUserCourse {
             let newCamera = camera ?? MGLMapCamera(lookingAtCenter: location.coordinate, altitude: altitude, pitch: 45, heading: location.course)
             let function: CAMediaTimingFunction? = animated ? CAMediaTimingFunction(name: .linear) : nil
-            let point = userAnchorPoint
-            let padding = UIEdgeInsets(top: point.y, left: point.x, bottom: bounds.height - point.y, right: bounds.width - point.x)
-            // Omit padding when https://github.com/mapbox/mapbox-gl-native/pull/14081 has landed
-            setCamera(newCamera, withDuration: duration, animationTimingFunction: function, edgePadding: padding, completionHandler: nil)
-            userCourseView?.center = userAnchorPoint
+            setCamera(newCamera, withDuration: duration, animationTimingFunction: function, completionHandler: nil)
         } else {
             // Animate course view updates in overview mode
             UIView.animate(withDuration: duration, delay: 0, options: [.curveLinear], animations: { [weak self] in
@@ -426,7 +409,7 @@ open class NavigationMapView: MGLMapView, UIGestureRecognizerDelegate {
     */
     public static let defaultPadding: UIEdgeInsets = UIEdgeInsets(top: 10, left: 20, bottom: 10, right: 20)
     
-    @objc public func showcase(_ routes: [Route], padding: UIEdgeInsets = NavigationMapView.defaultPadding, animated: Bool = false) {
+    @objc public func showcase(_ routes: [Route], animated: Bool = false) {
         guard let active = routes.first,
               let coords = active.coordinates,
               !coords.isEmpty else { return } //empty array
@@ -438,16 +421,19 @@ open class NavigationMapView: MGLMapView, UIGestureRecognizerDelegate {
         showRoutes(routes)
         showWaypoints(active)
         
-        fit(to: active, facing: 0, padding: padding, animated: animated)
+        fit(to: active, facing: 0, animated: animated)
     }
     
-    func fit(to route: Route, facing direction:CLLocationDirection = 0, padding: UIEdgeInsets = NavigationMapView.defaultPadding, animated: Bool = false) {
+    func fit(to route: Route, facing direction:CLLocationDirection = 0, animated: Bool = false) {
         guard let coords = route.coordinates, !coords.isEmpty else { return }
       
-        setUserTrackingMode(.none, animated: false)
+        setUserTrackingMode(.none, animated: false, completionHandler: nil)
         let line = MGLPolyline(coordinates: coords, count: UInt(coords.count))
-        let camera = cameraThatFitsShape(line, direction: direction, edgePadding: padding)
         
+        // Workaround for https://github.com/mapbox/mapbox-gl-native/issues/15574
+        // Set content insets .zero, before cameraThatFitsShape + setCamera.
+        contentInset = .zero
+        let camera = cameraThatFitsShape(line, direction: direction, edgePadding: safeArea + NavigationMapView.defaultPadding)
         setCamera(camera, animated: animated)
     }
     
@@ -817,32 +803,36 @@ open class NavigationMapView: MGLMapView, UIGestureRecognizerDelegate {
         var linesPerLeg: [MGLPolylineFeature] = []
         
         for (index, leg) in route.legs.enumerated() {
+            let lines: [MGLPolylineFeature]
             // If there is no congestion, don't try and add it
-            guard let legCongestion = leg.segmentCongestionLevels, legCongestion.count < coordinates.count else {
-                return [MGLPolylineFeature(coordinates: route.coordinates!, count: UInt(route.coordinates!.count))]
-            }
-            
-            // The last coord of the preceding step, is shared with the first coord of the next step, we don't need both.
-            let legCoordinates: [CLLocationCoordinate2D] = leg.steps.enumerated().reduce([]) { allCoordinates, current in
-                let index = current.offset
-                let step = current.element
-                let stepCoordinates = step.coordinates!
-                
-                return index == 0 ? stepCoordinates : allCoordinates + stepCoordinates.suffix(from: 1)
-            }
-            
-            let mergedCongestionSegments = combine(legCoordinates, with: legCongestion)
-            
-            let lines: [MGLPolylineFeature] = mergedCongestionSegments.map { (congestionSegment: CongestionSegment) -> MGLPolylineFeature in
-                let polyline = MGLPolylineFeature(coordinates: congestionSegment.0, count: UInt(congestionSegment.0.count))
-                polyline.attributes[MBCongestionAttribute] = String(describing: congestionSegment.1)
-                polyline.attributes["isAlternateRoute"] = false
-                if let legIndex = legIndex {
-                    polyline.attributes[MBCurrentLegAttribute] = index == legIndex
-                } else {
-                    polyline.attributes[MBCurrentLegAttribute] = index == 0
+            if let legCongestion = leg.segmentCongestionLevels, legCongestion.count < coordinates.count {
+                // The last coord of the preceding step, is shared with the first coord of the next step, we don't need both.
+                let legCoordinates: [CLLocationCoordinate2D] = leg.steps.enumerated().reduce([]) { allCoordinates, current in
+                    let index = current.offset
+                    let step = current.element
+                    let stepCoordinates = step.coordinates!
+                    
+                    return index == 0 ? stepCoordinates : allCoordinates + stepCoordinates.suffix(from: 1)
                 }
-                return polyline
+                
+                let mergedCongestionSegments = combine(legCoordinates, with: legCongestion)
+                
+                lines = mergedCongestionSegments.map { (congestionSegment: CongestionSegment) -> MGLPolylineFeature in
+                    let polyline = MGLPolylineFeature(coordinates: congestionSegment.0, count: UInt(congestionSegment.0.count))
+                    polyline.attributes[MBCongestionAttribute] = String(describing: congestionSegment.1)
+                    return polyline
+                }
+            } else {
+                lines = [MGLPolylineFeature(coordinates: route.coordinates!, count: UInt(route.coordinates!.count))]
+            }
+            
+            for line in lines {
+                line.attributes["isAlternateRoute"] = false
+                if let legIndex = legIndex {
+                    line.attributes[MBCurrentLegAttribute] = index == legIndex
+                } else {
+                    line.attributes[MBCurrentLegAttribute] = index == 0
+                }
             }
             
             linesPerLeg.append(contentsOf: lines)
@@ -1098,7 +1088,10 @@ open class NavigationMapView: MGLMapView, UIGestureRecognizerDelegate {
         let currentCamera = self.camera
         currentCamera.pitch = 0
         currentCamera.heading = 0
-        
+
+        // Workaround for https://github.com/mapbox/mapbox-gl-native/issues/15574
+        // Set content insets .zero, before cameraThatFitsShape + setCamera.
+        contentInset = .zero
         let newCamera = camera(currentCamera, fitting: line, edgePadding: padding)
         
         setCamera(newCamera, withDuration: 1, animationTimingFunction: nil) { [weak self] in

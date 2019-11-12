@@ -11,7 +11,7 @@ import CarPlay
  */
 @available(iOS 12.0, *)
 @objc(MBCarPlayNavigationViewController)
-public class CarPlayNavigationViewController: UIViewController {
+public class CarPlayNavigationViewController: UIViewController, NavigationMapViewDelegate {
     /**
      The view controller’s delegate.
      */
@@ -43,8 +43,6 @@ public class CarPlayNavigationViewController: UIViewController {
     @objc public fileprivate(set) var mapView: NavigationMapView?
     
     let shieldHeight: CGFloat = 16
-    var mapViewLeftSafeAreaBalancingConstraint: NSLayoutConstraint?
-    var mapViewRightSafeAreaBalancingConstraint: NSLayoutConstraint?
     
     var mapViewOverviewRightConstraint: NSLayoutConstraint?
     
@@ -53,6 +51,15 @@ public class CarPlayNavigationViewController: UIViewController {
     var carFeedbackTemplate: CPGridTemplate!
     var carInterfaceController: CPInterfaceController
     var styleManager: StyleManager?
+    
+    
+    /**
+     A view indicating what direction the vehicle is traveling towards, snapped
+     to eight cardinal directions in steps of 45°.
+     
+     This view is hidden by default.
+     */
+    @objc weak public var compassView: CarPlayCompassView!
     
     /**
      The interface styles available for display.
@@ -64,8 +71,6 @@ public class CarPlayNavigationViewController: UIViewController {
             styleManager?.styles = styles
         }
     }
-    
-    let distanceFormatter = DistanceFormatter(approximate: true)
     
     var edgePadding: UIEdgeInsets {
         let padding:CGFloat = 15
@@ -124,18 +129,16 @@ public class CarPlayNavigationViewController: UIViewController {
 
         self.mapView = mapView
         view.addSubview(mapView)
+        mapView.pinInSuperview()
         
-        // These constraints don’t account for language direction, because the
-        // safe area insets are nondirectional and may be affected by the side
-        // on which the driver is sitting.
-        mapViewRightSafeAreaBalancingConstraint = NSLayoutConstraint(item: mapView, attribute: .left, relatedBy: .equal, toItem: view, attribute: .left, multiplier: 1, constant: -mapView.safeArea.right)
-        view.addConstraint(mapViewRightSafeAreaBalancingConstraint!)
-        mapViewLeftSafeAreaBalancingConstraint = NSLayoutConstraint(item: mapView, attribute: .right, relatedBy: .equal, toItem: view, attribute: .right, multiplier: 1, constant: mapView.safeArea.left)
-        view.addConstraint(mapViewLeftSafeAreaBalancingConstraint!)
-        view.addConstraint(NSLayoutConstraint(item: mapView, attribute: .top, relatedBy: .equal, toItem: view, attribute: .top, multiplier: 1, constant: 0))
-        view.addConstraint(NSLayoutConstraint(item: mapView, attribute: .bottom, relatedBy: .equal, toItem: view, attribute: .bottom, multiplier: 1, constant: 0))
+        let compassView = CarPlayCompassView()
+        view.addSubview(compassView)
+        self.compassView = compassView
         
         mapViewOverviewRightConstraint = view.rightAnchor.constraint(equalTo: mapView.rightAnchor)
+        
+        compassView.topAnchor.constraint(equalTo: view.safeTopAnchor, constant: 8).isActive = true
+        compassView.rightAnchor.constraint(equalTo: view.rightAnchor, constant: -8).isActive = true
         
         styleObservation = mapView.observe(\.style, options: .new) { [weak self] (mapView, change) in
             guard change.newValue != nil else {
@@ -178,32 +181,37 @@ public class CarPlayNavigationViewController: UIViewController {
     public override func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
         
-        // Adjust the map’s vanishing point to counterbalance the side maneuver panels by extending the view off beyond the other side of the screen.
         guard let mapView = mapView else { return }
         
-        mapViewRightSafeAreaBalancingConstraint?.constant = -mapView.safeArea.right
-        mapViewLeftSafeAreaBalancingConstraint?.constant = mapView.safeArea.left
-        view.setNeedsUpdateConstraints()
-        
         mapView.enableFrameByFrameCourseViewTracking(for: 1)
-        
-        if !tracksUserCourse {
-            mapView.setContentInset(overviewContentInsets(), animated: false)
-            mapView.fit(to: navigationService.route, facing: 0, padding: .zero, animated: false)
-        }
     }
-    
-    func overviewContentInsets() -> UIEdgeInsets {
+
+    public override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        if (isOverviewingRoutes) { return } // Don't move content when overlays change.
+        guard let mapView = mapView else { return }
+        mapView.contentInset = contentInset(forOverviewing: false)
+    }
+
+    func contentInset(forOverviewing overviewing: Bool) -> UIEdgeInsets {
         guard let mapView = mapView else { return .zero }
-        var edgePadding = view.safeArea
-        
-        if let userCourseView = mapView.userCourseView {
-            let midX = userCourseView.bounds.midX
-            let midY = userCourseView.bounds.midY
-            edgePadding += UIEdgeInsets(top: midY, left: midX, bottom: midY, right: midX)
+        var insets = mapView.safeArea
+        if !overviewing {
+            // Puck position calculation - position it just above the bottom of the content area.
+            var contentFrame = mapView.bounds.inset(by: insets)
+
+            // Avoid letting the puck go partially off-screen, and add a comfortable padding beyond that.
+            let courseViewBounds = mapView.userCourseView?.bounds ?? .zero
+            // If it is not possible to position it right above the content area, center it at the remaining space.
+            contentFrame = contentFrame.insetBy(dx: min(NavigationMapView.courseViewMinimumInsets.left + courseViewBounds.width / 2.0, contentFrame.width / 2.0),
+                                                dy: min(NavigationMapView.courseViewMinimumInsets.top + courseViewBounds.height / 2.0, contentFrame.height / 2.0))
+            assert(!contentFrame.isInfinite)
+
+            let y = contentFrame.maxY
+            let height = mapView.bounds.height
+            insets.top = height - insets.bottom - 2 * (height - insets.bottom - y)
         }
-        
-        return edgePadding
+        return insets
     }
     
     /**
@@ -241,45 +249,45 @@ public class CarPlayNavigationViewController: UIViewController {
      
      When this property is true, the map follows the user’s location and rotates when their course changes. Otherwise, the map shows an overview of the route.
      */
-    @objc public var tracksUserCourse: Bool {
+    @objc public dynamic var tracksUserCourse: Bool {
         get {
             return mapView?.tracksUserCourse ?? false
         }
         set {
             let progress = navigationService.routeProgress
             if !tracksUserCourse && newValue {
-                
-                adjustMapViewVanishingPoint(forOverview: false)
-                
+                isOverviewingRoutes = false
                 mapView?.recenterMap()
                 mapView?.addArrow(route: progress.route,
                                  legIndex: progress.legIndex,
                                  stepIndex: progress.currentLegProgress.stepIndex + 1)
+                mapView?.setContentInset(contentInset(forOverviewing: false), animated: true, completionHandler: nil)
             } else if tracksUserCourse && !newValue {
-                
-                adjustMapViewVanishingPoint(forOverview: true)
-                
+                isOverviewingRoutes = !isPanningAway
                 guard let userLocation = self.navigationService.router.location?.coordinate,
                 let coordinates = navigationService.route.coordinates else {
                     return
                 }
                 mapView?.enableFrameByFrameCourseViewTracking(for: 1)
-                mapView?.setOverheadCameraView(from: userLocation, along: coordinates, for: .zero)
+                mapView?.contentInset = contentInset(forOverviewing: isOverviewingRoutes)
+                if (isOverviewingRoutes) {
+                    mapView?.setOverheadCameraView(from: userLocation, along: coordinates, for: contentInset(forOverviewing: true))
+                }
             }
         }
     }
-    
-    func adjustMapViewVanishingPoint(forOverview overviewing: Bool) {
-        mapViewLeftSafeAreaBalancingConstraint?.isActive = !overviewing
-        mapViewOverviewRightConstraint?.isActive = overviewing
-        
-        view.setNeedsUpdateConstraints()
-        mapView?.setNeedsUpdateConstraints()
-    }
+
+    // Tracks if tracksUserCourse was set to false from overview button
+    // or panned away.
+    var isPanningAway = false
+    var isOverviewingRoutes = false
     
     public func beginPanGesture() {
+        isPanningAway = true
+        tracksUserCourse = false
         mapView?.tracksUserCourse = false
         mapView?.enableFrameByFrameCourseViewTracking(for: 1)
+        isPanningAway = false
     }
     
     @objc func visualInstructionDidChange(_ notification: NSNotification) {
@@ -301,15 +309,19 @@ public class CarPlayNavigationViewController: UIViewController {
         let congestionLevel = routeProgress.averageCongestionLevelRemainingOnLeg ?? .unknown
         guard let maneuver = carSession.upcomingManeuvers.first else { return }
         
-        let legProgress = routeProgress.currentLegProgress
-        let legDistance = distanceFormatter.measurement(of: legProgress.distanceRemaining)
-        let legEstimates = CPTravelEstimates(distanceRemaining: legDistance, timeRemaining: legProgress.durationRemaining)
-        mapTemplate.update(legEstimates, for: carSession.trip, with: congestionLevel.asCPTimeRemainingColor)
+        let routeDistance = Measurement(distance: routeProgress.distanceRemaining).localized()
+        let routeEstimates = CPTravelEstimates(distanceRemaining: routeDistance, timeRemaining: routeProgress.durationRemaining)
+        mapTemplate.update(routeEstimates, for: carSession.trip, with: congestionLevel.asCPTimeRemainingColor)
         
-        let stepProgress = legProgress.currentStepProgress
-        let stepDistance = distanceFormatter.measurement(of: stepProgress.distanceRemaining)
+        let stepProgress = routeProgress.currentLegProgress.currentStepProgress
+        let stepDistance = Measurement(distance: stepProgress.distanceRemaining).localized()
         let stepEstimates = CPTravelEstimates(distanceRemaining: stepDistance, timeRemaining: stepProgress.durationRemaining)
         carSession.updateEstimates(stepEstimates, for: maneuver)
+        
+        if let compassView = self.compassView,
+            !compassView.isHidden {
+            compassView.course = location.course
+        }
     }
     
     /** Modifies the gesture recognizers to also update the map’s frame rate. */
@@ -344,7 +356,7 @@ public class CarPlayNavigationViewController: UIViewController {
         let step = navigationService.routeProgress.currentLegProgress.currentStep
         
         let primaryManeuver = CPManeuver()
-        let distance = distanceFormatter.measurement(of: step.distance)
+        let distance = Measurement(distance: step.distance).localized()
         primaryManeuver.initialTravelEstimates = CPTravelEstimates(distanceRemaining: distance, timeRemaining: step.expectedTravelTime)
         
         // Just incase, set some default text
@@ -399,7 +411,7 @@ public class CarPlayNavigationViewController: UIViewController {
             }
             
             if let upcomingStep = navigationService.routeProgress.currentLegProgress.upcomingStep {
-                let distance = distanceFormatter.measurement(of: upcomingStep.distance)
+                let distance = Measurement(distance: upcomingStep.distance).localized()
                 tertiaryManeuver.initialTravelEstimates = CPTravelEstimates(distanceRemaining: distance, timeRemaining: upcomingStep.expectedTravelTime)
             }
             
@@ -483,23 +495,6 @@ public class CarPlayNavigationViewController: UIViewController {
 }
 
 @available(iOS 12.0, *)
-extension CarPlayNavigationViewController: NavigationMapViewDelegate {
-    public func navigationMapViewUserAnchorPoint(_ mapView: NavigationMapView) -> CGPoint {
-        // Inset by the content inset to avoid application-defined content.
-        var contentFrame = mapView.bounds.inset(by: mapView.contentInset)
-        
-        // Avoid letting the puck go partially off-screen, and add a comfortable padding beyond that.
-        let courseViewBounds = mapView.userCourseView?.bounds ?? .zero
-        contentFrame = contentFrame.insetBy(dx: min(NavigationMapView.courseViewMinimumInsets.left + courseViewBounds.width / 2.0, contentFrame.width / 2.0),
-                                            dy: min(NavigationMapView.courseViewMinimumInsets.top + courseViewBounds.height / 2.0, contentFrame.height / 2.0))
-        
-        // Get the bottom-center of the remaining frame.
-        assert(!contentFrame.isInfinite)
-        return CGPoint(x: contentFrame.midX, y: contentFrame.maxY)
-    }
-}
-
-@available(iOS 12.0, *)
 extension CarPlayNavigationViewController: StyleManagerDelegate {
     @objc(locationForStyleManager:)
     public func location(for styleManager: StyleManager) -> CLLocation? {
@@ -542,7 +537,7 @@ public protocol CarPlayNavigationDelegate {
     
     //MARK: - Deprecated.
     
-    @available(*, obsoleted: 0.1, message: "Use NavigationViewControllerDelegate.navigationViewController(_:didArriveAt:) or  NavigationServiceDelegate.navigationService(_:didArriveAt:) instead.")
+    @available(*, deprecated, message: "Use NavigationViewControllerDelegate.navigationViewController(_:didArriveAt:) or  NavigationServiceDelegate.navigationService(_:didArriveAt:) instead.")
     @objc optional func carPlayNavigationViewControllerDidArrive(_ carPlayNavigationViewController: CarPlayNavigationViewController)
 }
 #endif

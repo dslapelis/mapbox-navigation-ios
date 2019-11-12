@@ -6,7 +6,6 @@ import MapboxCoreNavigation
 
 
 extension NSAttributedString {
-    @available(iOS 10.0, *)
     public func pronounced(_ pronunciation: String) -> NSAttributedString {
         let phoneticWords = pronunciation.components(separatedBy: " ")
         let phoneticString = NSMutableAttributedString()
@@ -25,7 +24,6 @@ extension NSAttributedString {
 }
 
 extension SpokenInstruction {
-    @available(iOS 10.0, *)
     func attributedText(for legProgress: RouteLegProgress) -> NSAttributedString {
         let attributedText = NSMutableAttributedString(string: text)
         if let step = legProgress.upcomingStep,
@@ -49,7 +47,13 @@ extension SpokenInstruction {
 }
 
 /**
- The `RouteVoiceController` class provides voice guidance.
+ A route voice controller plays spoken instructions as audio using the Speech Synthesis framework, also known as VoiceOver.
+ 
+ You initialize a voice controller using a `NavigationService` instance. The voice controller observes when the navigation service hints that the user has passed a _spoken instruction point_ and responds by reading aloud the contents of a `SpokenInstruction` object using an `AVSpeechSynthesizer` object.
+ 
+ The Speech Synthesis framework does not require a network connection, but the speech quality may be limited in some languages including English. By default, a `NavigationViewController` plays spoken instruction susing a subclass, `MapboxVoiceController`, that is powered by the [MapboxSpeech](https://github.com/mapbox/mapbox-speech-swift/) framework instead of the Speech Synthesis framework.
+ 
+ If you need to supply a third-party speech synthesizer, define a subclass of `RouteVoiceController` that overrides the `speak(_:)` method. If the third-party speech synthesizer requires a network connection, you can instead subclass `MapboxVoiceController` to take advantage of its prefetching functionality.
  */
 @objc(MBRouteVoiceController)
 open class RouteVoiceController: NSObject, AVSpeechSynthesizerDelegate {
@@ -165,26 +169,15 @@ open class RouteVoiceController: NSObject, AVSpeechSynthesizerDelegate {
         let audioSession = AVAudioSession.sharedInstance()
         if #available(iOS 12.0, *) {
             try audioSession.setCategory(.playback, mode: .voicePrompt, options: [.duckOthers, .mixWithOthers])
-        } else if #available(iOS 10.0, *) {
-            try audioSession.setCategory(.ambient, mode: .spokenAudio, options: [.duckOthers, .mixWithOthers])
         } else {
-            try audioSession.setMode(.spokenAudio)
-            audioSession.perform(Selector("setCategory:withOptions:error:" as String),
-                                 with: AVAudioSession.Category.ambient.rawValue,
-                                 with: [AVAudioSession.CategoryOptions.duckOthers.rawValue,
-                                        AVAudioSession.CategoryOptions.mixWithOthers.rawValue])
+            try audioSession.setCategory(.ambient, mode: .spokenAudio, options: [.duckOthers, .mixWithOthers])
         }
         try audioSession.setActive(true)
     }
     
     func mixAudio() throws {
         let audioSession = AVAudioSession.sharedInstance()
-        if #available(iOS 10.0, *) {
-            try audioSession.setCategory(.ambient, mode: audioSession.mode)
-        } else {
-            audioSession.perform(Selector("setCategory:error:" as String),
-                                 with: AVAudioSession.Category.ambient.rawValue)
-        }
+        try audioSession.setCategory(.ambient, mode: audioSession.mode)
         try audioSession.setActive(true)
     }
     
@@ -230,10 +223,8 @@ open class RouteVoiceController: NSObject, AVSpeechSynthesizerDelegate {
         
         let modifiedInstruction = voiceControllerDelegate?.voiceController?(self, willSpeak: instruction, routeProgress: routeProgress!) ?? instruction
         
-        if #available(iOS 10.0, *), utterance?.voice == nil {
+        if utterance?.voice == nil {
             utterance = AVSpeechUtterance(attributedString: modifiedInstruction.attributedText(for: routeProgress!.currentLegProgress))
-        } else {
-            utterance = AVSpeechUtterance(string: modifiedInstruction.text)
         }
         
         // Only localized languages will have a proper fallback voice

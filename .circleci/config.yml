@@ -73,6 +73,9 @@ jobs:
       xcode:
         type: string
         default: "10.2.0"
+      lint:
+        type: boolean
+        default: false
     macos:
       xcode: << parameters.xcode >>
     environment:
@@ -90,6 +93,11 @@ jobs:
           steps:
             - run: cd MapboxCoreNavigationTests/CocoaPodsTest/PodInstall && pod install --repo-update
       - run: cd MapboxCoreNavigationTests/CocoaPodsTest/PodInstall && xcodebuild -workspace PodInstall.xcworkspace -scheme PodInstall -destination 'platform=iOS Simulator,OS=<< parameters.iOS >>,name=iPhone 6 Plus' clean build | xcpretty
+      - when:
+          condition: << parameters.lint >>
+          steps:
+            - run: find . -path '*.podspec' -exec perl -pi -e 's/.+\.social_media_url.+//' {} \;
+            - run: pod lib lint MapboxCoreNavigation.podspec
       - *save-cache-podmaster
       - *save-cache-cocoapods
 
@@ -130,6 +138,9 @@ jobs:
       - run:
           name: Install prerequisites
           command: if [ $(xcversion simulators | grep -cF "iOS << parameters.iOS >> Simulator (installed)") -eq 0 ]; then xcversion simulators --install="iOS << parameters.iOS >>" || true; fi
+      - run:
+          name: pre-start simulator
+          command: xcrun instruments -w "<< parameters.device >> (<< parameters.iOS >>) [" || true
       - *verify-missing-localizable-strings
       - run:
           name: MapboxCoreNavigation
@@ -163,19 +174,19 @@ workflows:
   workflow:
     jobs:
       - build-job:
-          name: "Xcode_10.2_iOS_12.2"
-          xcode: "10.2.0"
-          iOS: "12.2"
+          name: "Xcode_11.1_iOS_13.1"
+          xcode: "11.1.0"
+          iOS: "13.1"
+          device: "iPhone 8 Plus"
       - build-job:
-          name: "Xcode_10.1_iOS_12.1"
-          xcode: "10.1.0"
+          name: "Xcode_10.3_iOS_12.1"
+          xcode: "10.3.0"
           iOS: "12.1"
           codecoverage: true
       - build-job:
-          name: "Xcode_10.1_iOS_9.3"
-          xcode: "10.1.0"
-          iOS: "9.3"
-          delete_private_deps: true
+          name: "Xcode_10.2_iOS_10.3.1"
+          xcode: "10.2.0"
+          iOS: "10.3.1"
           test: false
       - pod-job:
           name: "Xcode_10.2_iOS_12.2_CP_install"
@@ -187,4 +198,5 @@ workflows:
           update: true
           xcode: "10.2.0"
           iOS: "12.2"
+          lint: true
       - xcode-10-examples

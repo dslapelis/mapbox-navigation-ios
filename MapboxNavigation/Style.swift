@@ -36,19 +36,10 @@ open class Style: NSObject {
      */
     @objc open var mapStyleURL: URL = MGLStyle.navigationGuidanceDayStyleURL
     
-    #if canImport(CarPlay)
     /**
-     URL of the style to display on the map when previewing a route, for example on CarPlay.
+     URL of the style to display on the map when previewing a route, for example on CarPlay or your own route preview map.
      */
     @objc open var previewMapStyleURL = MGLStyle.navigationPreviewDayStyleURL
-    #else
-    /**
-     URL of the style to display on the map when previewing a route.
-     
-     This property is currently unused by default, but you can use it to present your own route preview map.
-     */
-    @objc open var previewMapStyleURL = MGLStyle.navigationPreviewDayStyleURL
-    #endif
     
     /**
      Applies the style for all changed properties.
@@ -103,7 +94,7 @@ open class FloatingButton: Button {
         }
     }
     
-    class func rounded<T: FloatingButton>(image: UIImage, selectedImage: UIImage? = nil, size: CGSize = FloatingButton.buttonSize) -> T {
+    class func rounded<T: FloatingButton>(image: UIImage? = nil, selectedImage: UIImage? = nil, size: CGSize = FloatingButton.buttonSize) -> T {
         let button = T.init(type: .custom)
         button.translatesAutoresizingMaskIntoConstraints = false
         button.constrainedSize = size
@@ -250,9 +241,20 @@ open class StylableView: UIView {
             layer.borderWidth = borderWidth
         }
     }
+    
     @objc dynamic var cornerRadius: CGFloat = 0.0 {
         didSet {
             layer.cornerRadius = cornerRadius
+        }
+    }
+    
+    @objc dynamic public var borderColor: UIColor? {
+        get {
+            guard let color = layer.borderColor else { return nil }
+            return UIColor(cgColor: color)
+        }
+        set {
+            layer.borderColor = newValue?.cgColor
         }
     }
 }
@@ -479,11 +481,10 @@ public class ProgressBar: UIView {
     func updateProgressBar() {
         if let superview = superview {
             let origin: CGPoint
-            switch UIApplication.shared.userInterfaceLayoutDirection {
-            case .leftToRight:
-                origin = .zero
-            case .rightToLeft:
+            if UIApplication.shared.userInterfaceLayoutDirection == .rightToLeft {
                 origin = CGPoint(x: superview.bounds.width * (1 - progress), y: 0)
+            } else {
+                origin = .zero
             }
             bar.frame = CGRect(origin: origin, size: CGSize(width: superview.bounds.width * progress, height: bounds.height))
         }
@@ -561,18 +562,21 @@ open class ManeuverContainerView: UIView {
     }
 }
 
-/// :nodoc:
-@objc(MBInstructionsBannerContentView)
-open class InstructionsBannerContentView: UIView { }
 
 /// :nodoc:
-@objc(MBBottomBannerContainerView)
-open class BottomBannerContainerView: UIView { }
+@objc(MBBannerContainerView)
+open class BannerContainerView: UIView { }
+
+/// :nodoc:
+@objc(MBTopBannerView)
+open class TopBannerView: UIView { }
 
 /// :nodoc:
 @objc(MBBottomBannerView)
 open class BottomBannerView: UIView { }
 
+@objc(MBBottomPaddingView)
+open class BottomPaddingView: BottomBannerView { }
 
 /// :nodoc:
 class NavigationAnnotation: MGLPointAnnotation { }

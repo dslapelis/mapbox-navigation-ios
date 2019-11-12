@@ -29,7 +29,13 @@ public class CarPlayMapViewController: UIViewController {
         return coarseLocationManager
     }()
     
-    var isOverviewingRoutes: Bool = false
+    var isOverviewingRoutes: Bool = false {
+        didSet {
+            // Workaround for https://github.com/mapbox/mapbox-gl-native/issues/15574
+            // In overview mode, content insets are set to .zero, avoid getting them changed.
+            automaticallyAdjustsScrollViewInsets = !isOverviewingRoutes
+        }
+    }
     
     var mapView: NavigationMapView {
         get {
@@ -43,7 +49,7 @@ public class CarPlayMapViewController: UIViewController {
     @objc public lazy var recenterButton: CPMapButton = {
         let recenter = CPMapButton { [weak self] button in
             
-            self?.mapView.setUserTrackingMode(.followWithCourse, animated: true)
+            self?.mapView.setUserTrackingMode(.followWithCourse, animated: true, completionHandler: nil)
             button.isHidden = true
         }
         let bundle = Bundle.mapboxNavigation
@@ -194,24 +200,17 @@ public class CarPlayMapViewController: UIViewController {
     
     override public func viewSafeAreaInsetsDidChange() {
         super.viewSafeAreaInsetsDidChange()
-        
-        var edgePadding = view.safeArea
-        edgePadding += NavigationMapView.defaultPadding
-        
-        if let userCourseView = mapView.userCourseView {
-            let midX = userCourseView.bounds.midX
-            let midY = userCourseView.bounds.midY
-            edgePadding += UIEdgeInsets(top: midY, left: midX, bottom: midY, right: midX)
-        }
-        
-        mapView.setContentInset(edgePadding, animated: false)
-        
         guard let active = mapView.routes?.first else {
-            mapView.setUserTrackingMode(.followWithCourse, animated: true)
+            mapView.setUserTrackingMode(.followWithCourse, animated: true, completionHandler: nil)
             return
         }
         
         if isOverviewingRoutes {
+            //FIXME: Unable to tilt map during route selection -- https://github.com/mapbox/mapbox-gl-native/issues/2259
+            let topDownCamera = mapView.camera
+            topDownCamera.pitch = 0
+            mapView.setCamera(topDownCamera, animated: false)
+            
             mapView.fit(to: active, animated: false)
         }
     }

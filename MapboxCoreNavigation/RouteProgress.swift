@@ -1,9 +1,6 @@
 import Foundation
 import MapboxDirections
 import Turf
-#if canImport(CarPlay)
-import CarPlay
-#endif
 
 /**
  `RouteProgress` stores the user’s progress along a route.
@@ -21,7 +18,7 @@ open class RouteProgress: NSObject {
     /**
      Index representing current `RouteLeg`.
      */
-    @objc public var legIndex: Int {
+    @objc dynamic public var legIndex: Int {
         didSet {
             assert(legIndex >= 0 && legIndex < route.legs.endIndex)
             // TODO: Set stepIndex to 0 or last index based on whether leg index was incremented or decremented.
@@ -333,7 +330,7 @@ open class RouteLegProgress: NSObject {
      Returns the `RouteStep` before a given step. Returns `nil` if there is no step prior.
      */
     @objc public func stepBefore(_ step: RouteStep) -> RouteStep? {
-        guard let index = leg.steps.index(of: step) else {
+        guard let index = leg.steps.firstIndex(of: step) else {
             return nil
         }
         if index > 0 {
@@ -346,7 +343,7 @@ open class RouteLegProgress: NSObject {
      Returns the `RouteStep` after a given step. Returns `nil` if there is not a step after.
      */
     @objc public func stepAfter(_ step: RouteStep) -> RouteStep? {
-        guard let index = leg.steps.index(of: step) else {
+        guard let index = leg.steps.firstIndex(of: step) else {
             return nil
         }
         if index+1 < leg.steps.endIndex {

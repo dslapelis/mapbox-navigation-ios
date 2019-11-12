@@ -29,8 +29,13 @@ open class NavigationEventsManager: NSObject {
     
     weak var dataSource: EventsManagerDataSource?
     
-    /// :nodoc: This is used internally when the navigation UI is being used
-    var usesDefaultUserInterface = false
+    /**
+     Indicates whether the application depends on MapboxNavigation in addition to MapboxCoreNavigation.
+     */
+    var usesDefaultUserInterface = {
+        // Assumption: MapboxNavigation.framework includes NavigationViewController and exposes it to the Objective-C runtime as MBNavigationViewController.
+        return NSClassFromString("MBNavigationViewController") != nil
+    }()
 
     /// :nodoc: the internal lower-level mobile events manager is an implementation detail which should not be manipulated directly
     private var mobileEventsManager: MMEEventsManager!
@@ -203,25 +208,25 @@ open class NavigationEventsManager: NSObject {
     }
     
     func sendRouteRetrievalEvent() {
-        guard let attributes = try? navigationRouteRetrievalEvent()?.asDictionary() else { return }
+        guard let attributes = (try? navigationRouteRetrievalEvent()?.asDictionary()) as [String: Any]?? else { return }
         mobileEventsManager.enqueueEvent(withName: NavigationEventTypeRouteRetrieval, attributes: attributes ?? [:])
         mobileEventsManager.flush()
     }
 
     func sendDepartEvent() {
-        guard let attributes = try? navigationDepartEvent()?.asDictionary() else { return }
+        guard let attributes = (try? navigationDepartEvent()?.asDictionary()) as [String: Any]?? else { return }
         mobileEventsManager.enqueueEvent(withName: MMEEventTypeNavigationDepart, attributes: attributes ?? [:])
         mobileEventsManager.flush()
     }
     
     func sendArriveEvent() {
-        guard let attributes = try? navigationArriveEvent()?.asDictionary() else { return }
+        guard let attributes = (try? navigationArriveEvent()?.asDictionary()) as [String: Any]?? else { return }
         mobileEventsManager.enqueueEvent(withName: MMEEventTypeNavigationArrive, attributes: attributes ?? [:])
         mobileEventsManager.flush()
     }
     
     func sendCancelEvent(rating: Int? = nil, comment: String? = nil) {
-        guard let attributes = try? navigationCancelEvent(rating: rating, comment: comment)?.asDictionary() else { return }
+        guard let attributes = (try? navigationCancelEvent(rating: rating, comment: comment)?.asDictionary()) as [String: Any]?? else { return }
         mobileEventsManager.enqueueEvent(withName: MMEEventTypeNavigationCancel, attributes: attributes ?? [:])
         mobileEventsManager.flush()
     }
@@ -229,7 +234,7 @@ open class NavigationEventsManager: NSObject {
     func sendFeedbackEvents(_ events: [CoreFeedbackEvent]) {
         events.forEach { event in
             // remove from outstanding event queue
-            if let index = outstandingFeedbackEvents.index(of: event) {
+            if let index = outstandingFeedbackEvents.firstIndex(of: event) {
                 outstandingFeedbackEvents.remove(at: index)
             }
             
@@ -242,14 +247,14 @@ open class NavigationEventsManager: NSObject {
     }
     
     func enqueueFeedbackEvent(type: FeedbackType, description: String?) -> UUID? {
-        guard let eventDictionary = try? navigationFeedbackEvent(type: type, description: description)?.asDictionary() else { return nil }
+        guard let eventDictionary = (try? navigationFeedbackEvent(type: type, description: description)?.asDictionary()) as [String: Any]?? else { return nil }
         let event = FeedbackEvent(timestamp: Date(), eventDictionary: eventDictionary ?? [:])
         outstandingFeedbackEvents.append(event)
         return event.id
     }
 
     func enqueueRerouteEvent() {
-        guard let eventDictionary = try? navigationRerouteEvent()?.asDictionary() else { return }
+        guard let eventDictionary = (try? navigationRerouteEvent()?.asDictionary()) as [String: Any]?? else { return }
         let timestamp = dataSource?.router.location?.timestamp ?? Date()
         
         sessionState?.lastRerouteDate = timestamp
@@ -268,7 +273,7 @@ open class NavigationEventsManager: NSObject {
     }
 
     func enqueueFoundFasterRouteEvent() {
-        guard let eventDictionary = try? navigationRerouteEvent(eventType: FasterRouteFoundEvent)?.asDictionary() else { return }
+        guard let eventDictionary = (try? navigationRerouteEvent(eventType: FasterRouteFoundEvent)?.asDictionary()) as [String: Any]?? else { return }
 
         let timestamp = Date()
         sessionState?.lastRerouteDate = timestamp
@@ -329,7 +334,7 @@ open class NavigationEventsManager: NSObject {
      Discard a recorded feedback event, for example if you have a custom feedback UI and the user canceled feedback.
      */
     @objc public func cancelFeedback(uuid: UUID) {
-        if let index = outstandingFeedbackEvents.index(where: {$0.id == uuid}) {
+        if let index = outstandingFeedbackEvents.firstIndex(where: {$0.id == uuid}) {
             outstandingFeedbackEvents.remove(at: index)
         }
     }

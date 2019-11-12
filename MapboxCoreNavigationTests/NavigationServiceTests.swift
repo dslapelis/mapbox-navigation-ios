@@ -47,6 +47,10 @@ class NavigationServiceTests: XCTestCase {
         delegate.reset()
     }
     
+    func testDefaultUserInterfaceUsage() {
+        XCTAssertTrue(dependencies.navigationService.eventsManager.usesDefaultUserInterface, "MapboxCoreNavigationTests should have an implicit dependency on MapboxNavigation due to running inside the Example application target.")
+    }
+    
     func testUserIsOnRoute() {
         let navigation = dependencies.navigationService
         let firstLocation = dependencies.routeLocations.firstLocation
@@ -371,18 +375,19 @@ class NavigationServiceTests: XCTestCase {
         XCTAssertNil(subject, "Expected RouteController not to live beyond autorelease pool")
     }
     
-    func testPortableRouteControllerDoesNotHaveRetainCycle() {
-        weak var subject: RouteController? = nil
-        
-        autoreleasepool {
-            let fakeDataSource = RouteControllerDataSourceFake()
-            let routeController = RouteController(along: initialRoute, directions: directionsClientSpy, dataSource: fakeDataSource)
-            subject = routeController
-        }
-        
-        XCTAssertNil(subject, "Expected PortableRouteController not to live beyond autorelease pool")
-    }
-
+    func testLegacyRouteControllerDoesNotHaveRetainCycle() {
+           
+           weak var subject: LegacyRouteController? = nil
+           
+           autoreleasepool {
+               let fakeDataSource = RouteControllerDataSourceFake()
+               let routeController = LegacyRouteController(along: initialRoute, directions: directionsClientSpy, dataSource: fakeDataSource)
+               subject = routeController
+           }
+           
+           XCTAssertNil(subject, "Expected LegacyRouteController not to live beyond autorelease pool")
+       }
+       
     func testRouteControllerDoesNotRetainDataSource() {
 
         weak var subject: RouterDataSource? = nil
@@ -440,8 +445,14 @@ class NavigationServiceTests: XCTestCase {
         
         let directions = DirectionsSpy(accessToken: "pk.feedCafeDeadBeefBadeBede")
         let service = MapboxNavigationService(route: route, directions: directions)
+        service.delegate = delegate
+        let router = service.router!
         let locationManager = NavigationLocationManager()
         
+        let _ = expectation(forNotification: .routeControllerDidReroute, object: router) { (notification) -> Bool in
+            let isProactive = notification.userInfo![RouteControllerNotificationUserInfoKey.isProactiveKey] as? Bool
+            return isProactive == true
+        }
         let rerouteExpectation = expectation(description: "Proactive reroute should trigger")
         
         for location in trace {
@@ -455,6 +466,27 @@ class NavigationServiceTests: XCTestCase {
             }
         }
         
+        let fasterRouteName = "DCA-Arboretum-dummy-faster-route"
+        let fasterRoute = Fixture.route(from: fasterRouteName)
+        let waypointsForFasterRoute = Fixture.waypoints(from: fasterRouteName)
+        directions.fireLastCalculateCompletion(with: waypointsForFasterRoute, routes: [fasterRoute], error: nil)
+        
+        XCTAssertTrue(delegate.recentMessages.contains("navigationService(_:didRerouteAlong:at:proactive:)"))
+        
         waitForExpectations(timeout: 10)
+    }
+    
+    func testNineLeggedRouteForOutOfBounds() {
+        let route = Fixture.route(from: "9-legged-route")
+        let directions = Directions(accessToken: "foo")
+        let locationManager = DummyLocationManager()
+        let trace = Fixture.generateTrace(for: route, speedMultiplier: 4).shiftedToPresent()
+        
+        let service = MapboxNavigationService(route: route, directions: directions, locationSource: locationManager, eventsManagerType: nil)
+        service.start()
+        
+        for location in trace {
+            service.locationManager(locationManager, didUpdateLocations: [location])
+        }
     }
 }

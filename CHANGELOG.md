@@ -1,5 +1,73 @@
 # Changes to the Mapbox Navigation SDK for iOS
 
+## v0.38.0
+
+* This library now requires a minimum deployment target of iOS 10.0 or above. iOS 9._x_ is no longer supported. ([#2206](https://github.com/mapbox/mapbox-navigation-ios/pull/2206))
+* Fixed an issue where the user puck appeared farther up the screen than the actual user location even while the camera pivoted around the user location at turns. ([#2211](https://github.com/mapbox/mapbox-navigation-ios/pull/2211))
+* Lock screen notifications are presented more reliably and more closely resemble instruction banners. ([#2206](https://github.com/mapbox/mapbox-navigation-ios/pull/2206))
+* Fixed an issue where manually incrementing `RouteProgress.legIndex` could lead to undefined behavior. ([#2229](https://github.com/mapbox/mapbox-navigation-ios/pull/2229))
+* `DistanceFormatter` now inherits directly from `Formatter` rather than `LengthFormatter`. ([#2206](https://github.com/mapbox/mapbox-navigation-ios/pull/2206))
+* Fixed an issue where `DistanceFormatter.attributedString(for:withDefaultAttributes:)` set `NSAttributedString.Key.quantity` to the original distance value rather than the potentially rounded value represented by the attributed string. ([#2206](https://github.com/mapbox/mapbox-navigation-ios/pull/2206))
+
+## v0.37.0
+
+* Fixed an issue where a second swipe down on the top banner causes an open `StepsTableViewController` to animate incorrectly. ([#2197](https://github.com/mapbox/mapbox-navigation-ios/pull/2197))
+* Added the `NavigationViewControllerDelegate.navigationViewController(_:didUpdate:location:rawLocation:)` method for capturing progress updates without having to inject a class between the `NavigationViewController` and the `NavigationService`. ([#2224](https://github.com/mapbox/mapbox-navigation-ios/pull/2224))
+* Fixed an issue where the bottom banner can disappear when presenting in `UIModalPresentationStyle.fullScreen` in iOS 13.  ([#2182](https://github.com/mapbox/mapbox-navigation-ios/pull/2182))
+
+## v0.36.0
+
+* Fixed an issue where InstructionsBannerView remained the same color after switching to a day or night style. ([#2178](https://github.com/mapbox/mapbox-navigation-ios/pull/2178))
+* Fixed an issue where `NavigationMapView` showed routes without congestion attributes, such as `MBDirectionsProfileIdentifier.walking` routes, as translucent lines, even if the route had only one leg. ([#2193](https://github.com/mapbox/mapbox-navigation-ios/pull/2193))
+* Fixed an issue where the “iPhone Volume Low” banner would persist until replaced by another banner about simulation or rerouting. ([#2183](https://github.com/mapbox/mapbox-navigation-ios/pull/2183))
+* Designables no longer crash and fail to render in Interface Builder when the application target links to this SDK via CocoaPods. ([#2179](https://github.com/mapbox/mapbox-navigation-ios/pull/2179))
+* Fixed a crash that could occur when statically initializing a `Style` if the SDK was installed using CocoaPods. ([#2179](https://github.com/mapbox/mapbox-navigation-ios/pull/2179))
+* Fixed incorrect animation of instruction labels when presenting the step list. ([#2185](https://github.com/mapbox/mapbox-navigation-ios/pull/2185))
+
+## v0.35.0
+
+* Upgraded to [Mapbox Maps SDK for iOS v5.1.0](https://github.com/mapbox/mapbox-gl-native/releases/tag/ios-v5.1.0). ([#2134](https://github.com/mapbox/mapbox-navigation-ios/pull/2134))
+* Added the ability to define a custom view controller for the top banner via `NavigationOptions.topBanner`. ([#2121](https://github.com/mapbox/mapbox-navigation-ios/pull/2121))
+* StyleManager now posts a `StyleManagerDidApplyStyleNotification` when a style gets applied due to a change of day of time, or when entering or exiting a tunnel. ([#2148](https://github.com/mapbox/mapbox-navigation-ios/pull/2148))
+* Fixed a crash when presenting `NavigationViewController` on iOS 13.0. ([#2156](https://github.com/mapbox/mapbox-navigation-ios/pull/2156))
+* Added a setter to the `Router.reroutesProactively` property. ([#2157](https://github.com/mapbox/mapbox-navigation-ios/pull/2157))
+* Added a Yoruba localization. ([#2159](https://github.com/mapbox/mapbox-navigation-ios/pull/2159))
+
+## v0.34.0
+
+* Upgraded to [Mapbox Maps SDK for iOS v5.0.0](https://github.com/mapbox/mapbox-gl-native/releases/tag/ios-v5.0.0), which changes [how monthly active users are counted](https://www.mapbox.com/52219). ([#2133](https://github.com/mapbox/mapbox-navigation-ios/pull/2133))
+* Deprecated `StatusViewDelegate` in favor of calling the `UIControl.addTarget(_:action:for:)` method on `StatusView` for `UIControl.Event.valueChanged`. ([#2136](https://github.com/mapbox/mapbox-navigation-ios/pull/2136))
+* Fixed an issue where the status view showed a simulated speed factor as an unformatted number. ([#2136](https://github.com/mapbox/mapbox-navigation-ios/pull/2136))
+* Fixed an issue preventing the status view from appearing while rerouting. ([#2137](https://github.com/mapbox/mapbox-navigation-ios/pull/2137))
+* The `RouteOptions.alleyPriority`, `RouteOptions.walkwayPriority`, and `RouteOptions.speed` properties now work when calculating walking routes offline. ([#2142](https://github.com/mapbox/mapbox-navigation-ios/pull/2142))
+
+## v0.33.0
+
+* Restored the compass to `CarPlayNavigationViewController`, now displaying a digital readout of the direction of travel, represented by the `CarPlayCompassView` class. ([#2077](https://github.com/mapbox/mapbox-navigation-ios/pull/2077))
+
+## v0.32.0
+
+### Core Navigation
+
+* Fixed an issue where `RouteControllerNotificationUserInfoKey.isProactiveKey` was not set to `true` in `Notification.Name.routeControllerDidReroute` notifications after proactively rerouting the user. ([#2086](https://github.com/mapbox/mapbox-navigation-ios/pull/2086))
+* Fixed an issue where `LegacyRouteController` failed to call `NavigationServiceDelegate.navigationService(_:didPassSpokenInstructionPoint:routeProgress:)` and omitted `RouteControllerNotificationUserInfoKey.spokenInstructionKey` from `Notification.Name.routeControllerDidPassSpokenInstructionPoint` notifications. ([#2089](https://github.com/mapbox/mapbox-navigation-ios/pull/2089))
+* Fixed an issue where `SimulatedLocationManager`’s distance did not update in response to updating the `Router`’s route, causing the user puck to be snapped to an invalid location on the new route. ([#2096](https://github.com/mapbox/mapbox-navigation-ios/pull/2096))
+* `NavigationMatchOptions.shapeFormat` now defaults to `RouteShapeFormat.polyline6` for consistency with `NavigationRouteOptions` and compatibility with the `RouteController`. ([#2084](https://github.com/mapbox/mapbox-navigation-ios/pull/2084))
+* Fixed an issue where the user location was unsnapped when the user’s course was unavailable. ([#2092](https://github.com/mapbox/mapbox-navigation-ios/pull/2092))
+* Fixed an issue where a failed rerouting request prevented `LegacyRouteController` from ever rerouting the user again. ([#2093](https://github.com/mapbox/mapbox-navigation-ios/pull/2093))
+
+### CarPlay
+
+* Fixed an issue where the remaining distance and travel time displayed during turn-by-turn navigation were calculated relative to the upcoming waypoint instead of the final destination. ([#2119](https://github.com/mapbox/mapbox-navigation-ios/pull/2119))
+* Deprecated `CarPlayManager.overviewButton` in favor of `CarPlayManager.userTrackingButton`, which updates the icon correctly when panning out of tracking state. ([#2100](https://github.com/mapbox/mapbox-navigation-ios/pull/2100))
+* When previewing a route, the distance and estimated travel time are displayed at the bottom of the window. ([#2120](https://github.com/mapbox/mapbox-navigation-ios/pull/2120))
+* By default, the destination waypoint name is no longer displayed a second time when previewing a route. To add a subtitle to the preview, implement the `CarPlayManagerDelegate.carPlayManager(_:willPreview:)` method; create an `MKMapItem` whose `MKPlacemark` has the `Street` key in its address dictionary. ([#2120](https://github.com/mapbox/mapbox-navigation-ios/pull/2119))
+
+### Other changes
+
+* Fixed compiler warnings in Xcode 10.2 when installing the SDK using CocoaPods. ([#2087](https://github.com/mapbox/mapbox-navigation-ios/pull/2087))
+* Fixed an issue where the user puck could float around while the user is at rest or moving in reverse. ([#2109](https://github.com/mapbox/mapbox-navigation-ios/pull/2109))
+
 ## v0.31.0
 
 * Fixed a number of warnings and errors when building the SDK from source using CocoaPods in Swift 4.2. ([#2058](https://github.com/mapbox/mapbox-navigation-ios/pull/2058))
